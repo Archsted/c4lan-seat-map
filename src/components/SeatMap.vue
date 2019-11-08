@@ -16,7 +16,10 @@
                                     alt=""
                                     v-tooltip.right-end="getAttendeePopup(getAttendee(column, side, row))"
                                     @click="openWindow(getAttendee(column, side, row).twitter)"
-                                    :class="{hasTwitter: getAttendee(column, side, row).twitter}"
+                                    :class="{
+                                    hasTwitter: getAttendee(column, side, row).twitter,
+                                    isNotSearchTarget: isNotSearchTarget(getAttendee(column, side, row))
+                                    }"
                                 >
                                 <span v-else-if="isReservedSeat(column, row)">
                                     [展示席]
@@ -34,16 +37,23 @@
             </div>
         </div>
         <div class="map--footer">
-            ブラウザ最大化推奨。このページはC4LANのファンサイトです。内容について公式に問い合わせすることはお止めください。 / <a href="https://2019w.c4-lan.com/">C4LAN 2019 Winter 公式サイト</a> / <a href="https://2019w.c4-lan.com/attendees/">参加者一覧ページ</a> / <a href="https://twitter.com/etude_kaicho">このページ作った人</a>
+            ブラウザ最大化推奨。このページはC4LANのファンサイトです。内容について公式に問い合わせすることはお止めください。 / <a href="https://2019w.c4-lan.com/">公式サイト</a> / <a href="https://2019w.c4-lan.com/attendees/">参加者</a> / <a href="https://twitter.com/etude_kaicho">このページ作った人 (FL-19, 20)</a>
+        </div>
+        <div class="map--search">
+            ゲーム名などで検索<br>
+            <input type="search" v-model="keyword">
         </div>
     </div>
 </template>
 
 <script>
     import axios from 'axios'
+    import _ from 'lodash'
 
     export default {
         data: () => ({
+            keyword: "",
+            debouncedKeyword: "",
             isReady: false,
             maxRow: 22,
             sides: ['L', 'R'],
@@ -109,9 +119,13 @@
         }),
         created() {
             this.getAttendees()
+            this.debouncedSearch = _.debounce(this.getSearchResult, 500)
         },
         methods: {
             getAttendees() {
+
+                // this.attendees = require('@/assets/attendees.json')
+
                 return new Promise( (resolve, reject) => {
                     axios.get('/api/attendees')
                         .then( response => {
@@ -190,6 +204,22 @@
             isExistsSeat(column, row) {
                 return row >= column.minRow && row <= column.maxRow
             },
+            isNotSearchTarget(attendee) {
+                let searchKeyword = this.debouncedKeyword.trim()
+
+                if (searchKeyword === "") {
+                    return false
+                } else {
+                    searchKeyword = searchKeyword.toUpperCase()
+                }
+
+                return !(
+                    (attendee.name && attendee.name.toUpperCase().indexOf(searchKeyword) > -1) ||
+                    (attendee.group && attendee.group.toUpperCase().indexOf(searchKeyword) > -1) ||
+                    (attendee.favorite && attendee.favorite.toUpperCase().indexOf(searchKeyword) > -1) ||
+                    (attendee.message && attendee.message.toUpperCase().indexOf(searchKeyword) > -1)
+                )
+            },
             stabWordBreak(str) {
                 let result = ""
                 const maxWord = 3000
@@ -211,7 +241,15 @@
                 const paddingString = "0" + num
                 return paddingString.slice(-2)
             },
+            getSearchResult() {
+                this.debouncedKeyword = this.keyword
+            }
         },
+        watch: {
+            keyword: function () {
+                this.debouncedSearch()
+            }
+        }
     }
 </script>
 
@@ -337,6 +375,29 @@
 
     .hasTwitter {
         cursor: pointer;
+    }
+
+    .map--search {
+        position: absolute;
+        top: 20vh;
+        left: 37.4vw;
+        background-color: red;
+        padding: 8px;
+        transform:scale(1.5);
+        transform-origin: left top;
+        width: 9.8vw;
+        font-size: 50%;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+
+    .map--search > input {
+        width: 9.5vw;
+    }
+
+    .isNotSearchTarget {
+        opacity: 0.1;
+        filter: grayscale(100%);
     }
 
 </style>
